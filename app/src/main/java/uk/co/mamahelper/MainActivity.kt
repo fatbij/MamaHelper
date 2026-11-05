@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -228,6 +230,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
+    val pathNodes = viewModel.currentPathNodes()
     BackHandler(enabled = state.path.isNotEmpty()) { viewModel.back() }
     if (state.settingsOpen) SettingsDialog(onClose = { viewModel.setSettings(false) })
     Scaffold(
@@ -236,7 +239,11 @@ private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) 
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Breadcrumbs(viewModel)
+                Breadcrumbs(
+                    nodes = pathNodes,
+                    onHome = viewModel::home,
+                    onJump = viewModel::jump
+                )
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { viewModel.setSettings(true) }) {
                     Icon(Icons.Default.Settings, "Open edit settings")
@@ -253,6 +260,7 @@ private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) 
             modifier = Modifier.padding(padding)
         ) else WordGrid(
             nodes = viewModel.currentNodes(),
+            title = pathNodes.lastOrNull()?.label ?: "Home",
             state = state,
             onSpeak = { word -> if (viewModel.acceptTap()) speaker.speak(word) },
             onOpen = viewModel::open,
@@ -267,12 +275,12 @@ private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) 
 }
 
 @Composable
-private fun Breadcrumbs(viewModel: TalkViewModel) {
+private fun Breadcrumbs(nodes: List<WordNode>, onHome: () -> Unit, onJump: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Home", fontWeight = FontWeight.Bold, modifier = Modifier.clickable { viewModel.home() })
-        viewModel.currentPathNodes().forEachIndexed { index, node ->
+        Text("Home", fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onHome))
+        nodes.forEachIndexed { index, node ->
             Icon(Icons.Default.ChevronRight, null)
-            Text(node.label, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { viewModel.jump(index) })
+            Text(node.label, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onJump(index) })
         }
     }
 }
@@ -280,6 +288,7 @@ private fun Breadcrumbs(viewModel: TalkViewModel) {
 @Composable
 private fun WordGrid(
     nodes: List<WordNode>,
+    title: String,
     state: BoardState,
     onSpeak: (String) -> Unit,
     onOpen: (WordNode) -> Unit,
@@ -295,16 +304,16 @@ private fun WordGrid(
     val columns = if (LocalConfiguration.current.screenWidthDp >= 700) 4 else 3
     Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         Text(
-            text = state.path.lastOrNull()?.let { id -> state.roots.findNode(id)?.label } ?: "Home",
-            fontSize = 25.sp,
+            text = title,
+            fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
         )
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(nodes, key = { it.id }) { node ->
                 WordButton(
@@ -320,7 +329,7 @@ private fun WordGrid(
                 )
             }
             if (state.editMode) item {
-                Button(onClick = { adding = true }, modifier = Modifier.size(148.dp)) {
+                Button(onClick = { adding = true }, modifier = Modifier.size(168.dp)) {
                     Icon(Icons.Default.Add, "Add word"); Spacer(Modifier.width(4.dp)); Text("Add here")
                 }
             }
@@ -348,14 +357,15 @@ private fun WordButton(
     onAddChild: () -> Unit
 ) {
     var renaming by remember { mutableStateOf(false) }
+    var fontSize by remember(node.label) { mutableFloatStateOf(30f) }
     val haptic = LocalHapticFeedback.current
     Card(
-        modifier = Modifier.size(148.dp),
+        modifier = Modifier.size(168.dp),
         colors = CardDefaults.cardColors(containerColor = shade),
-        shape = RoundedCornerShape(18.dp)
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.weight(1f).fillMaxWidth()) {
+            Row(Modifier.weight(1f).fillMaxWidth().heightIn(min = 132.dp)) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.weight(if (node.children.isEmpty()) 1f else 2f)
@@ -369,24 +379,56 @@ private fun WordButton(
                     Text(
                         node.label,
                         color = Color.White,
-                        fontSize = 28.sp,
-                        lineHeight = 32.sp,
+                        fontSize = fontSize.sp,
+                        lineHeight = (fontSize + 4f).sp,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        maxLines = 3,
+                        onTextLayout = { result ->
+                            if (result.hasVisualOverflow && fontSize > 16f) {
+                                fontSize -= 2f
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
                 if (node.children.isNotEmpty()) Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.weight(1f).fillMaxSize().background(shade.copy(alpha = .7f))
+                    modifier = Modifier.weight(1f).fillMaxSize()
+                        .background(Color.Black.copy(alpha = .28f))
                         .clickable { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onOpen(node) }
-                ) { Icon(Icons.Default.ChevronRight, "Open ${node.label}", tint = Color.White, modifier = Modifier.size(42.dp)) }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            "Open ${node.label}",
+                            tint = Color.White,
+                            modifier = Modifier.size(54.dp)
+                        )
+                        Text("Open", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
             }
-            if (editing) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                IconButton(onClick = { renaming = true }) { Icon(Icons.Default.Edit, "Rename ${node.label}", tint = Color.White) }
-                IconButton(onClick = onAddChild) { Icon(Icons.Default.Add, "Add inside ${node.label}", tint = Color.White) }
-                IconButton(onClick = { onMove(node, -1) }) { Text("Up", color = Color.White) }
-                IconButton(onClick = { onMove(node, 1) }) { Text("Down", color = Color.White) }
-                IconButton(onClick = { onDelete(node) }) { Icon(Icons.Default.Delete, "Delete ${node.label}", tint = Color.White) }
+            if (editing) Row(
+                modifier = Modifier.fillMaxWidth().height(36.dp).background(Color.Black.copy(alpha = .2f)),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { renaming = true }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Default.Edit, "Rename ${node.label}", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = onAddChild, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Default.Add, "Add inside ${node.label}", tint = Color.White, modifier = Modifier.size(22.dp))
+                }
+                IconButton(onClick = { onMove(node, -1) }, modifier = Modifier.size(34.dp)) {
+                    Text("Up", color = Color.White, fontSize = 11.sp)
+                }
+                IconButton(onClick = { onMove(node, 1) }, modifier = Modifier.size(34.dp)) {
+                    Text("Down", color = Color.White, fontSize = 11.sp)
+                }
+                IconButton(onClick = { onDelete(node) }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Default.Delete, "Delete ${node.label}", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
@@ -473,12 +515,4 @@ private fun SettingsDialog(onClose: () -> Unit, viewModel: TalkViewModel = viewM
 private fun colourFor(id: String): Color {
     val colours = listOf(0xFF005F73, 0xFF6A4C93, 0xFF9B2226, 0xFF386641, 0xFF7F5539, 0xFF3A506B)
     return Color(colours[(id.hashCode().toUInt().toInt() and Int.MAX_VALUE) % colours.size])
-}
-
-private fun List<WordNode>.findNode(id: String): WordNode? {
-    for (node in this) {
-        if (node.id == id) return node
-        node.children.findNode(id)?.let { return it }
-    }
-    return null
 }
