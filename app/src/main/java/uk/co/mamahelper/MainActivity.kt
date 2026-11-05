@@ -146,6 +146,9 @@ class TalkViewModel(application: Application) : AndroidViewModel(application) {
     fun add(label: String) = updateTree { children ->
         children + WordNode(UUID.randomUUID().toString(), label.trim(), children = emptyList())
     }
+    fun addChild(parent: WordNode, label: String) = replace(_state.value.roots, parent.id) {
+        it.copy(children = it.children + WordNode(UUID.randomUUID().toString(), label.trim()))
+    }
     fun rename(node: WordNode, label: String) = replace(_state.value.roots, node.id) { it.copy(label = label.trim()) }
     fun delete(node: WordNode) = replace(_state.value.roots, node.id) { null }
     fun move(node: WordNode, direction: Int) {
@@ -257,6 +260,7 @@ private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) 
             onDelete = viewModel::delete,
             onMove = viewModel::move,
             onAdd = viewModel::add,
+            onAddChild = viewModel::addChild,
             modifier = Modifier.padding(padding)
         )
     }
@@ -283,16 +287,24 @@ private fun WordGrid(
     onDelete: (WordNode) -> Unit,
     onMove: (WordNode, Int) -> Unit,
     onAdd: (String) -> Unit,
+    onAddChild: (WordNode, String) -> Unit,
     modifier: Modifier
 ) {
     var adding by remember { mutableStateOf(false) }
+    var childParent by remember { mutableStateOf<WordNode?>(null) }
     val columns = if (LocalConfiguration.current.screenWidthDp >= 700) 4 else 3
-    Box(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        Text(
+            text = state.path.lastOrNull()?.let { id -> state.roots.findNode(id)?.label } ?: "Home",
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+        )
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
-            modifier = Modifier.fillMaxSize().padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(nodes, key = { it.id }) { node ->
                 WordButton(
@@ -303,17 +315,24 @@ private fun WordGrid(
                     onOpen = onOpen,
                     onRename = onRename,
                     onDelete = onDelete,
-                    onMove = onMove
+                    onMove = onMove,
+                    onAddChild = { childParent = node }
                 )
             }
             if (state.editMode) item {
-                Button(onClick = { adding = true }, modifier = Modifier.size(140.dp)) {
-                    Icon(Icons.Default.Add, "Add word"); Spacer(Modifier.width(4.dp)); Text("Add")
+                Button(onClick = { adding = true }, modifier = Modifier.size(148.dp)) {
+                    Icon(Icons.Default.Add, "Add word"); Spacer(Modifier.width(4.dp)); Text("Add here")
                 }
             }
         }
     }
     if (adding) WordDialog("Add word", "", { value -> onAdd(value); adding = false }, { adding = false })
+    childParent?.let { parent ->
+        WordDialog("Add inside ${parent.label}", "", { value ->
+            onAddChild(parent, value)
+            childParent = null
+        }, { childParent = null })
+    }
 }
 
 @Composable
@@ -325,28 +344,37 @@ private fun WordButton(
     onOpen: (WordNode) -> Unit,
     onRename: (WordNode, String) -> Unit,
     onDelete: (WordNode) -> Unit,
-    onMove: (WordNode, Int) -> Unit
+    onMove: (WordNode, Int) -> Unit,
+    onAddChild: () -> Unit
 ) {
     var renaming by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     Card(
-        modifier = Modifier.size(140.dp),
+        modifier = Modifier.size(148.dp),
         colors = CardDefaults.cardColors(containerColor = shade),
         shape = RoundedCornerShape(18.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.weight(1f)) {
-                Text(
-                    node.label,
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    lineHeight = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier.weight(if (node.children.isEmpty()) 1f else 2f)
-                        .fillMaxSize().clickable { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onSpeak(node.label) }
-                        .padding(6.dp)
-                )
+                        .fillMaxSize()
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSpeak(node.label)
+                        }
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        node.label,
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        lineHeight = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
                 if (node.children.isNotEmpty()) Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.weight(1f).fillMaxSize().background(shade.copy(alpha = .7f))
@@ -355,6 +383,7 @@ private fun WordButton(
             }
             if (editing) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 IconButton(onClick = { renaming = true }) { Icon(Icons.Default.Edit, "Rename ${node.label}", tint = Color.White) }
+                IconButton(onClick = onAddChild) { Icon(Icons.Default.Add, "Add inside ${node.label}", tint = Color.White) }
                 IconButton(onClick = { onMove(node, -1) }) { Text("Up", color = Color.White) }
                 IconButton(onClick = { onMove(node, 1) }) { Text("Down", color = Color.White) }
                 IconButton(onClick = { onDelete(node) }) { Icon(Icons.Default.Delete, "Delete ${node.label}", tint = Color.White) }
@@ -444,4 +473,12 @@ private fun SettingsDialog(onClose: () -> Unit, viewModel: TalkViewModel = viewM
 private fun colourFor(id: String): Color {
     val colours = listOf(0xFF005F73, 0xFF6A4C93, 0xFF9B2226, 0xFF386641, 0xFF7F5539, 0xFF3A506B)
     return Color(colours[(id.hashCode().toUInt().toInt() and Int.MAX_VALUE) % colours.size])
+}
+
+private fun List<WordNode>.findNode(id: String): WordNode? {
+    for (node in this) {
+        if (node.id == id) return node
+        node.children.findNode(id)?.let { return it }
+    }
+    return null
 }
