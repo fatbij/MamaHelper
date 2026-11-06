@@ -513,6 +513,16 @@ private fun SettingsDialog(onClose: () -> Unit, viewModel: TalkViewModel = viewM
 }
 
 private fun colourFor(id: String): Color {
-    val colours = listOf(0xFF005F73, 0xFF6A4C93, 0xFF9B2226, 0xFF386641, 0xFF7F5539, 0xFF3A506B)
-    return Color(colours[(id.hashCode().toUInt().toInt() and Int.MAX_VALUE) % colours.size])
+    val colour = when (id) {
+        "family", "people" -> 0xFF6A4C93
+        "pain", "body", "mouth" -> 0xFF9B2226
+        "food", "drink" -> 0xFF9A5A00
+        "feelings" -> 0xFF175B9B
+        "toilet", "bed" -> 0xFF006D77
+        "things", "places" -> 0xFF386641
+        "needs", "questions", "help", "phrases" -> 0xFF3A506B
+        "time" -> 0xFF264653
+        else -> 0xFF3A506B
+    }
+    return Color(colour)
 }

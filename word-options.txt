@@ -1,0 +1,322 @@
+Family
+- Hansa
+- Trishul
+  - Bejal
+  - Anaya
+  - Neve
+- Poonam
+  - Alex
+  - Sariah
+  - Saphira
+  - Sahana
+- Nimu
+ - Mahesh
+ - Sonia
+ - Reena
+ - Miraj
+  - Dimple
+  - Gian
+ - Maha
+  - Joost
+  - Nyla
+  - Nora
+- Savi
+ - Kishore
+ - Vinesh
+  - Clare
+  - Olivia
+  - Robert
+ - Bijal
+  - Janel
+  - Hari
+  - Indie
+ - Jayminee
+  - Mike
+  - Caiden
+  - Mila
+- Kanchan
+ - Bharat
+ - Baa
+ - Priya
+  - Tom
+  - Wren
+ - Nishma
+  - Andrew
+  - Seb
+ - Zara
+- Sailesh
+ - Bhavna
+ - Saagar
+ - Dhruve
+- Hansa
+ - Kishore
+ - Nishan
+ - Ketan
+
+Needs
+- Hungry
+- Thirsty
+- Pain
+- Toilet
+- Cold
+- Hot
+- Tired
+- Help
+
+Questions
+- Yes
+- No
+- Maybe
+- I don't know
+- I don't understand
+- Please repeat
+- What?
+- Where?
+- When?
+
+Help
+- Come here
+- Stay with me
+- Leave me alone
+- Call family
+- Call doctor
+- Emergency
+- Thank you
+
+Phrases
+- I am in pain
+- I am hungry
+- I am thirsty
+- I need help
+- I need the toilet
+- I don't understand
+- Please repeat
+- Call Hansa
+- Call Trishul
+- Call Poonam
+- I want to go home
+- I am comfortable
+- I am not comfortable
+- Thank you
+
+Pain
+- Little
+- Medium
+- Bad
+- Worse
+- Better
+- Painkiller
+- Sharp
+- Burning
+- Throbbing
+- Constant
+- Emergency
+
+Mouth
+- Dry
+- Saliva
+- Tissue
+- Suction
+- Swallow
+- Tube
+- Mouthwash
+- Lips
+- Sore
+- Bleeding
+- Blocked
+- Choking
+- Rinse
+- Clean
+
+Body
+- Head
+  - Eyes
+  - Ears
+  - Nose
+  - Face
+- Mouth
+- Throat
+- Neck
+- Jaw
+- Chest
+- Stomach
+- Back
+- Arm
+- Hand
+- Finger
+- Shoulder
+- Leg
+- Foot
+- Wound
+- Itchy
+- Numb
+- Swollen
+
+Food
+- English
+  - Soup
+  - Yoghurt
+  - Porridge
+  - Ice cream
+  - Smoothie
+  - Tea
+  - Toast
+  - Cereal
+  - Eggs
+  - Sandwich
+  - Mashed potato
+  - Custard
+  - Jelly
+  - Fruit
+
+- Indian
+  - Chai
+  - Khichdi
+  - Daal
+  - Rice
+  - Rotli
+  - Shaak
+  - Kadhi
+  - Moong
+  - Thepla
+  - Handvo
+  - Dhokla
+  - Farsan
+  - Sev
+  - Gathiya
+  - Papad
+  - Samosa
+  - Bhajia
+  - Mango
+  - Pickle
+  - Sweet
+
+- Preferences
+  - Mild
+  - Spicy
+  - Sweet
+  - Salty
+  - Soft
+  - Liquid
+  - Hot
+  - Cold
+  - Too hot
+  - Too cold
+  - More
+  - Less
+  - Different food
+  - Don't like this
+  - Like this
+  - Enough
+  - Finished
+
+Drink
+- Thirsty
+- Water
+- Tea
+- Coffee
+- Juice
+- Milk
+- Ice
+- Straw
+- Too hot
+- Too cold
+- More
+- Stop
+
+People
+- Nurse
+- Doctor
+- Carer
+- Therapist
+- Speech therapist
+- Surgeon
+- Dietitian
+- Friends
+- Neighbours
+
+Feelings
+- Good
+- OK
+- Bad
+- Tired
+- Sad
+- Happy
+- Worried
+- Scared
+- Angry
+- Bored
+- Lonely
+- Confused
+- Dizzy
+- Sick
+- Frustrated
+- Comfortable
+- Anxious
+- Better today
+- Not well
+
+Toilet
+- Wee
+- Poo
+- Now
+- Help
+- Urgent
+- Finished
+- Constipated
+- Wash
+- Shower
+- Teeth
+- Shave
+
+Bed
+- Sleep
+- Sit up
+- Lie down
+- Turn
+- Pillow
+- Blanket
+- Light
+- Window
+
+Things
+- Phone
+- Charger
+- Glasses
+- TV
+  - On
+  - Off
+  - Channel
+  - Louder
+  - Quieter
+- Music
+- Tablet
+- Newspaper
+- Pen
+- Paper
+- Medicine
+- Wallet
+- Keys
+
+Places
+- Home
+- Hospital
+- Bedroom
+- Bathroom
+- Kitchen
+- Lounge
+- Garden
+- Outside
+- Car
+- Shops
+
+Time
+- Now
+- Later
+- Today
+- Tomorrow
+- Yesterday
+- Morning
+- Afternoon
+- Evening
+- Night
