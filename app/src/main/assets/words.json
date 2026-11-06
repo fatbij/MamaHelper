@@ -1858,5 +1858,168 @@
         "children": []
       }
     ]
+  },
+  {
+    "id": "letters",
+    "label": "Letters",
+    "imagePath": null,
+    "children": [
+      {
+        "id": "a",
+        "label": "A",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "b",
+        "label": "B",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "c",
+        "label": "C",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "d",
+        "label": "D",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "e",
+        "label": "E",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "f",
+        "label": "F",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "g",
+        "label": "G",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "h",
+        "label": "H",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "i",
+        "label": "I",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "j",
+        "label": "J",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "k",
+        "label": "K",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "l",
+        "label": "L",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "m",
+        "label": "M",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "n",
+        "label": "N",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "o",
+        "label": "O",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "p",
+        "label": "P",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "q",
+        "label": "Q",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "r",
+        "label": "R",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "s",
+        "label": "S",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "t",
+        "label": "T",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "u",
+        "label": "U",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "v",
+        "label": "V",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "w",
+        "label": "W",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "x",
+        "label": "X",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "y",
+        "label": "Y",
+        "imagePath": null,
+        "children": []
+      },
+      {
+        "id": "z",
+        "label": "Z",
+        "imagePath": null,
+        "children": []
+      }
+    ]
   }
 ]

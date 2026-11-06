@@ -1,38 +1,48 @@
 package uk.co.mamahelper
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,6 +72,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,6 +88,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 import java.util.Locale
 import java.util.UUID
 
@@ -93,12 +106,17 @@ data class BoardState(
     val path: List<String> = emptyList(),
     val editMode: Boolean = false,
     val typedText: String = "",
-    val settingsOpen: Boolean = false
+    val settingsOpen: Boolean = false,
+    val linkedWordOptionsFile: Boolean = false,
+    val saveError: String? = null
 )
 
 class WordRepository(private val app: Application) {
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val file = File(app.filesDir, "words.json")
+    private val preferences = app.getSharedPreferences("word-options", Application.MODE_PRIVATE)
+    private val linkedFile: Uri?
+        get() = preferences.getString("linked-file", null)?.let(Uri::parse)
 
     fun load(): List<WordNode> {
         if (!file.exists()) {
@@ -107,14 +125,62 @@ class WordRepository(private val app: Application) {
         return json.decodeFromString(file.readText())
     }
 
-    fun save(words: List<WordNode>) {
+    fun hasLinkedFile(): Boolean = linkedFile != null
+
+    fun save(words: List<WordNode>): String? {
         file.writeText(json.encodeToString(words))
+        val uri = linkedFile ?: return null
+        return writeLinkedFile(uri, words)
+    }
+
+    fun linkFile(uri: Uri, words: List<WordNode>): String? {
+        return try {
+            app.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            preferences.edit().putString("linked-file", uri.toString()).apply()
+            writeLinkedFile(uri, words)
+        } catch (_: SecurityException) {
+            "The app cannot write to the selected word-options file."
+        }
+    }
+
+    private fun writeLinkedFile(uri: Uri, words: List<WordNode>): String? {
+        return try {
+            val output = app.contentResolver.openOutputStream(uri, "wt")
+                ?: return "The selected word-options file cannot be opened."
+            output.bufferedWriter().use { it.write(formatWordOptions(words)) }
+            null
+        } catch (_: FileNotFoundException) {
+            "The selected word-options file is no longer available."
+        } catch (_: SecurityException) {
+            "Permission to update the selected word-options file was removed."
+        } catch (_: IOException) {
+            "The word-options file could not be updated."
+        }
+    }
+
+    private fun formatWordOptions(words: List<WordNode>): String = buildString {
+        fun appendNodes(nodes: List<WordNode>, depth: Int) {
+            nodes.forEach { node ->
+                if (depth == 0) {
+                    appendLine(node.label)
+                } else {
+                    append("  ".repeat(depth - 1)).append("- ").appendLine(node.label)
+                }
+                appendNodes(node.children, depth + 1)
+            }
+        }
+        appendNodes(words, 0)
     }
 }
 
 class TalkViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = WordRepository(application)
-    private val _state = MutableStateFlow(BoardState(roots = repository.load()))
+    private val _state = MutableStateFlow(
+        BoardState(roots = repository.load(), linkedWordOptionsFile = repository.hasLinkedFile())
+    )
     val state: StateFlow<BoardState> = _state.asStateFlow()
     private var lastTap = 0L
 
@@ -144,6 +210,14 @@ class TalkViewModel(application: Application) : AndroidViewModel(application) {
     fun setTyped(text: String) { _state.value = _state.value.copy(typedText = text) }
     fun setEdit(enabled: Boolean) { _state.value = _state.value.copy(editMode = enabled) }
     fun setSettings(open: Boolean) { _state.value = _state.value.copy(settingsOpen = open) }
+    fun linkWordOptionsFile(uri: Uri) {
+        val state = _state.value
+        val error = repository.linkFile(uri, state.roots)
+        _state.value = state.copy(
+            linkedWordOptionsFile = error == null,
+            saveError = error
+        )
+    }
 
     fun add(label: String) = updateTree { children ->
         children + WordNode(UUID.randomUUID().toString(), label.trim(), children = emptyList())
@@ -167,8 +241,7 @@ class TalkViewModel(application: Application) : AndroidViewModel(application) {
     private fun updateTree(transform: (List<WordNode>) -> List<WordNode>) {
         val state = _state.value
         val roots = if (state.path.isEmpty()) transform(state.roots) else replaceAtPath(state.roots, state.path, transform)
-        repository.save(roots)
-        _state.value = state.copy(roots = roots)
+        _state.value = state.copy(roots = roots, saveError = repository.save(roots))
     }
     private fun replace(nodes: List<WordNode>, id: String, transform: (WordNode) -> WordNode?) {
         fun recurse(items: List<WordNode>): List<WordNode> = items.mapNotNull { item ->
@@ -178,8 +251,7 @@ class TalkViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         val roots = recurse(_state.value.roots)
-        repository.save(roots)
-        _state.value = _state.value.copy(roots = roots)
+        _state.value = _state.value.copy(roots = roots, saveError = repository.save(roots))
     }
     private fun replaceAtPath(nodes: List<WordNode>, path: List<String>, transform: (List<WordNode>) -> List<WordNode>): List<WordNode> {
         val id = path.first()
@@ -230,22 +302,32 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
-    val pathNodes = viewModel.currentPathNodes()
+    val wordOptionsPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let(viewModel::linkWordOptionsFile)
+    }
     BackHandler(enabled = state.path.isNotEmpty()) { viewModel.back() }
-    if (state.settingsOpen) SettingsDialog(onClose = { viewModel.setSettings(false) })
+    if (state.settingsOpen) {
+        SettingsDialog(
+            onClose = { viewModel.setSettings(false) },
+            onLinkWordOptionsFile = {
+                wordOptionsPicker.launch(arrayOf("text/plain", "application/json"))
+            }
+        )
+    }
     Scaffold(
         topBar = {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .statusBarsPadding()
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.End))
+                    .padding(horizontal = 4.dp)
             ) {
-                Breadcrumbs(
-                    nodes = pathNodes,
-                    onHome = viewModel::home,
-                    onJump = viewModel::jump
-                )
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { viewModel.setSettings(true) }) {
+                IconButton(
+                    onClick = { viewModel.setSettings(true) },
+                    modifier = Modifier.align(Alignment.CenterEnd).size(48.dp)
+                ) {
                     Icon(Icons.Default.Settings, "Open edit settings")
                 }
             }
@@ -260,7 +342,6 @@ private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) 
             modifier = Modifier.padding(padding)
         ) else WordGrid(
             nodes = viewModel.currentNodes(),
-            title = pathNodes.lastOrNull()?.label ?: "Home",
             state = state,
             onSpeak = { word -> if (viewModel.acceptTap()) speaker.speak(word) },
             onOpen = viewModel::open,
@@ -275,20 +356,8 @@ private fun TalkBoard(speaker: Speaker, viewModel: TalkViewModel = viewModel()) 
 }
 
 @Composable
-private fun Breadcrumbs(nodes: List<WordNode>, onHome: () -> Unit, onJump: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Home", fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onHome))
-        nodes.forEachIndexed { index, node ->
-            Icon(Icons.Default.ChevronRight, null)
-            Text(node.label, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onJump(index) })
-        }
-    }
-}
-
-@Composable
 private fun WordGrid(
     nodes: List<WordNode>,
-    title: String,
     state: BoardState,
     onSpeak: (String) -> Unit,
     onOpen: (WordNode) -> Unit,
@@ -301,19 +370,18 @@ private fun WordGrid(
 ) {
     var adding by remember { mutableStateOf(false) }
     var childParent by remember { mutableStateOf<WordNode?>(null) }
-    val columns = if (LocalConfiguration.current.screenWidthDp >= 700) 4 else 3
+    val configuration = LocalConfiguration.current
+    val columns = when {
+        configuration.screenWidthDp > configuration.screenHeightDp && configuration.screenWidthDp >= 700 -> 4
+        configuration.screenWidthDp > configuration.screenHeightDp -> 3
+        else -> 2
+    }
     Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        Text(
-            text = title,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-        )
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(nodes, key = { it.id }) { node ->
                 WordButton(
@@ -360,15 +428,15 @@ private fun WordButton(
     var fontSize by remember(node.label) { mutableFloatStateOf(30f) }
     val haptic = LocalHapticFeedback.current
     Card(
-        modifier = Modifier.size(168.dp),
+        modifier = Modifier.fillMaxWidth().height(128.dp),
         colors = CardDefaults.cardColors(containerColor = shade),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.weight(1f).fillMaxWidth().heightIn(min = 132.dp)) {
+            Row(Modifier.weight(1f).fillMaxWidth().heightIn(min = 92.dp)) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.weight(if (node.children.isEmpty()) 1f else 2f)
+                    modifier = Modifier.weight(if (node.children.isEmpty()) 1f else 3f)
                         .fillMaxSize()
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -383,9 +451,11 @@ private fun WordButton(
                         lineHeight = (fontSize + 4f).sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        maxLines = 3,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
                         onTextLayout = { result ->
-                            if (result.hasVisualOverflow && fontSize > 16f) {
+                            if (result.hasVisualOverflow && fontSize > 14f) {
                                 fontSize -= 2f
                             }
                         },
@@ -438,7 +508,7 @@ private fun WordButton(
 @Composable
 private fun BottomBar(speaker: Speaker, viewModel: TalkViewModel) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
+        modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         BottomButton("Yes", Color(0xFF197B30)) { speaker.speak("Yes") }
@@ -452,9 +522,19 @@ private fun BottomBar(speaker: Speaker, viewModel: TalkViewModel) {
 @Composable
 private fun RowScope.BottomButton(label: String, colour: Color, action: () -> Unit) {
     Button(
-        onClick = action, colors = ButtonDefaults.buttonColors(containerColor = colour),
-        modifier = Modifier.weight(1f).height(62.dp)
-    ) { Text(label, fontSize = 18.sp, textAlign = TextAlign.Center) }
+        onClick = action,
+        colors = ButtonDefaults.buttonColors(containerColor = colour),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        modifier = Modifier.weight(1f).height(52.dp)
+    ) {
+        Text(
+            label,
+            fontSize = 16.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
 }
 
 @Composable
@@ -484,7 +564,11 @@ private fun WordDialog(title: String, initial: String, confirm: (String) -> Unit
 }
 
 @Composable
-private fun SettingsDialog(onClose: () -> Unit, viewModel: TalkViewModel = viewModel()) {
+private fun SettingsDialog(
+    onClose: () -> Unit,
+    onLinkWordOptionsFile: () -> Unit,
+    viewModel: TalkViewModel = viewModel()
+) {
     var pin by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
     AlertDialog(
@@ -497,7 +581,21 @@ private fun SettingsDialog(onClose: () -> Unit, viewModel: TalkViewModel = viewM
                 } else {
                     Text("Add, rename, delete and reorder words on the board.")
                     Spacer(Modifier.height(8.dp))
-                    Text("Photo, backup and voice settings are kept locally.")
+                    Text(
+                        if (state.linkedWordOptionsFile) {
+                            "The linked word-options file updates after every edit."
+                        } else {
+                            "Link a word-options file to keep an editable copy up to date."
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = onLinkWordOptionsFile) {
+                        Text(if (state.linkedWordOptionsFile) "Replace linked file" else "Link word-options file")
+                    }
+                    state.saveError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         },
